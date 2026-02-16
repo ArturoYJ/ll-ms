@@ -26,7 +26,7 @@ CREATE TABLE usuarios (
     nombre VARCHAR(100) NOT NULL,
     email VARCHAR(150) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
-    rol VARCHAR(50) NOT NULL,
+    rol VARCHAR(50) NOT NULL CHECK (rol IN ('ADMIN', 'GERENTE')),
     activo BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -42,7 +42,8 @@ CREATE TABLE variantes (
     precio_venta_etiqueta DECIMAL(10,2) NOT NULL CHECK (precio_venta_etiqueta >= 0),
     etiqueta_generada BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (id_producto_maestro) REFERENCES productos_maestros(id_producto_maestro) ON DELETE RESTRICT
+    FOREIGN KEY (id_producto_maestro) REFERENCES productos_maestros(id_producto_maestro) ON DELETE RESTRICT,
+    CHECK (precio_venta_etiqueta >= precio_adquisicion)
 );
 
 -- Entidades relacionales
