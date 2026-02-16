@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 # Este script carga datos iniciales en la base de datos PostgreSQL,
 # inyectando variables de entorno de forma segura usando psql -v.
 #
