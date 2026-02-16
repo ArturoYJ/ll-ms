@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:seed": "./scripts/seed.sh"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
