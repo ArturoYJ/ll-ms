@@ -16,7 +16,7 @@ ON CONFLICT (descripcion) DO NOTHING;
 -- Usamos pgcrypto: crypt(texto_plano, gen_salt('bf')) donde 'bf' es bcrypt.
 INSERT INTO usuarios (nombre, email, password_hash, rol, activo) VALUES
 (
-  'Arturo Jaime', 
+  'Arturo', 
   :'admin_email', 
   crypt(:'admin_password', gen_salt('bf')), 
   'ADMIN', 
