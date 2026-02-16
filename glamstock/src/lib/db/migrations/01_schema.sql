@@ -10,7 +10,7 @@ CREATE TABLE productos_maestros (
 
 CREATE TABLE sucursales (
     id_sucursal SERIAL PRIMARY KEY,
-    nombre_lugar VARCHAR(100) NOT NULL,
+    nombre_lugar VARCHAR(100) NOT NULL UNIQUE,
     ubicacion VARCHAR(255),
     activo BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
