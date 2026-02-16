@@ -18,7 +18,7 @@ CREATE TABLE sucursales (
 
 CREATE TABLE motivos_transaccion (
     id_motivo SERIAL PRIMARY KEY,
-    descripcion VARCHAR(100) NOT NULL
+    descripcion VARCHAR(100) NOT NULL UNIQUE
 );
 
 CREATE TABLE usuarios (
@@ -38,8 +38,8 @@ CREATE TABLE variantes (
     codigo_barras VARCHAR(100) NOT NULL UNIQUE,
     modelo VARCHAR(100),
     color VARCHAR(50),
-    precio_adquisicion DECIMAL(19,2) NOT NULL CHECK (precio_adquisicion >= 0),
-    precio_venta_etiqueta DECIMAL(10,2) NOT NULL CHECK (precio_venta_etiqueta >= 0),
+    precio_adquisicion DECIMAL(12,2) NOT NULL CHECK (precio_adquisicion >= 0),
+    precio_venta_etiqueta DECIMAL(12,2) NOT NULL CHECK (precio_venta_etiqueta >= 0),
     etiqueta_generada BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (id_producto_maestro) REFERENCES productos_maestros(id_producto_maestro) ON DELETE RESTRICT,
@@ -65,7 +65,7 @@ CREATE TABLE ventas_bajas (
     id_motivo INTEGER NOT NULL,
     id_usuario INTEGER NOT NULL,
     cantidad INTEGER NOT NULL CHECK (cantidad > 0),
-    precio_venta_final DECIMAL(10,2) NOT NULL CHECK (precio_venta_final >= 0),
+    precio_venta_final DECIMAL(12,2) NOT NULL CHECK (precio_venta_final >= 0),
     fecha_hora TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (id_variante) REFERENCES variantes(id_variante) ON DELETE RESTRICT,
     FOREIGN KEY (id_sucursal) REFERENCES sucursales(id_sucursal) ON DELETE RESTRICT,
