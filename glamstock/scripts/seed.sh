@@ -61,7 +61,7 @@ echo "Inyectando datos semilla en la base de datos..."
 psql "$DATABASE_URL" \
   -v admin_email="$ADMIN_EMAIL" \
   -v admin_password="$ADMIN_PASSWORD" \
-  -f src/lib/db/migrations/02_seed.sql
+  -f src/lib/db/migrations/03_seed.sql
 
 echo "Sembrado completado con éxito"
 echo ""
