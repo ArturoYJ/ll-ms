@@ -13,11 +13,10 @@ INSERT INTO motivos_transaccion (descripcion) VALUES
 ON CONFLICT DO NOTHING;
 
 
--- INSERT de usuario administrador
 -- Usamos pgcrypto: crypt(texto_plano, gen_salt('bf')) donde 'bf' es bcrypt.
 INSERT INTO usuarios (nombre, email, password_hash, rol, activo) VALUES
 (
-  'Ilya Administrador', 
+  'Arturo Jaime', 
   :'admin_email', 
   crypt(:'admin_password', gen_salt('bf')), 
   'ADMIN', 
