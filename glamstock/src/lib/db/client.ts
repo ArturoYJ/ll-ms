@@ -15,4 +15,6 @@ pool.on('error', (err, client) => {
 // Exportamos un wrapper limpio para hacer queries en nuestros repositorios
 export const db = {
   query: (text: string, params?: unknown[]) => pool.query(text, params),
+  // getClient() obtiene una conexión dedicada del pool para transacciones (BEGIN/COMMIT/ROLLBACK)
+  getClient: () => pool.connect(),
 };
