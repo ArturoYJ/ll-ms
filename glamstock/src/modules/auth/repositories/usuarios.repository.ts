@@ -39,9 +39,9 @@ export class UsuariosRepository {
     try {
       const { rows } = await db.query(query, [nombre, email, passwordHash, rol]);
       return rows[0];
-    } catch (error: any) {
+    } catch (error: unknown) {
       // 23505 = unique_violation en PostgreSQL (email duplicado)
-      if (error.code === '23505') {
+      if (error instanceof Error && 'code' in error && (error as { code: string }).code === '23505') {
         throw new ConflictError('Ya existe un usuario con este email');
       }
       throw error;

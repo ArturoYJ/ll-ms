@@ -14,5 +14,5 @@ pool.on('error', (err, client) => {
 
 // Exportamos un wrapper limpio para hacer queries en nuestros repositorios
 export const db = {
-  query: (text: string, params?: any[]) => pool.query(text, params),
+  query: (text: string, params?: unknown[]) => pool.query(text, params),
 };
