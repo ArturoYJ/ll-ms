@@ -72,3 +72,18 @@ CREATE TABLE ventas_bajas (
     FOREIGN KEY (id_motivo) REFERENCES motivos_transaccion(id_motivo) ON DELETE RESTRICT,
     FOREIGN KEY (id_usuario) REFERENCES usuarios(id_usuario) ON DELETE RESTRICT
 );
+
+-- Función genérica para actualizar timestamps
+CREATE OR REPLACE FUNCTION update_timestamp()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = CURRENT_TIMESTAMP;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Trigger enganchado a la tabla inventario_sucursal
+CREATE TRIGGER inventario_updated_at
+BEFORE UPDATE ON inventario_sucursal
+FOR EACH ROW
+EXECUTE FUNCTION update_timestamp();
