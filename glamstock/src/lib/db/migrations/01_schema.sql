@@ -1,14 +1,24 @@
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
+DROP TABLE IF EXISTS ventas_bajas CASCADE;
+DROP TABLE IF EXISTS inventario_sucursal CASCADE;
+DROP TABLE IF EXISTS variantes CASCADE;
+DROP TABLE IF EXISTS productos_maestros CASCADE;
+DROP TABLE IF EXISTS sucursales CASCADE;
+DROP TABLE IF EXISTS motivos_transaccion CASCADE;
+DROP TABLE IF EXISTS usuarios CASCADE;
+DROP TRIGGER IF EXISTS inventario_updated_at ON inventario_sucursal;
+DROP FUNCTION IF EXISTS update_timestamp();
+
 -- Entidades independientes 
-CREATE TABLE productos_maestros (
+CREATE TABLE IF NOT EXISTS productos_maestros (
     id_producto_maestro SERIAL PRIMARY KEY,
     sku VARCHAR(50) NOT NULL UNIQUE,
     nombre VARCHAR(150) NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE sucursales (
+CREATE TABLE IF NOT EXISTS sucursales (
     id_sucursal SERIAL PRIMARY KEY,
     nombre_lugar VARCHAR(100) NOT NULL UNIQUE,
     ubicacion VARCHAR(255),
@@ -16,12 +26,12 @@ CREATE TABLE sucursales (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE motivos_transaccion (
+CREATE TABLE IF NOT EXISTS motivos_transaccion (
     id_motivo SERIAL PRIMARY KEY,
     descripcion VARCHAR(100) NOT NULL UNIQUE
 );
 
-CREATE TABLE usuarios (
+CREATE TABLE IF NOT EXISTS usuarios (
     id_usuario SERIAL PRIMARY KEY,
     nombre VARCHAR(100) NOT NULL,
     email VARCHAR(150) NOT NULL UNIQUE,
@@ -32,7 +42,7 @@ CREATE TABLE usuarios (
 );
 
 -- Entidades dependientes
-CREATE TABLE variantes (
+CREATE TABLE IF NOT EXISTS variantes (
     id_variante SERIAL PRIMARY KEY,
     id_producto_maestro INTEGER NOT NULL,
     codigo_barras VARCHAR(100) NOT NULL UNIQUE,
@@ -47,7 +57,7 @@ CREATE TABLE variantes (
 );
 
 -- Entidades relacionales
-CREATE TABLE inventario_sucursal (
+CREATE TABLE IF NOT EXISTS inventario_sucursal (
     id_inventario SERIAL PRIMARY KEY,
     id_variante INTEGER NOT NULL,
     id_sucursal INTEGER NOT NULL,
@@ -55,10 +65,10 @@ CREATE TABLE inventario_sucursal (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (id_variante) REFERENCES variantes(id_variante) ON DELETE RESTRICT,
     FOREIGN KEY (id_sucursal) REFERENCES sucursales(id_sucursal) ON DELETE RESTRICT,
-    UNIQUE(id_variante, id_sucursal) 
+    UNIQUE(id_variante, id_sucursal)
 );
 
-CREATE TABLE ventas_bajas (
+CREATE TABLE IF NOT EXISTS ventas_bajas (
     id_transaccion SERIAL PRIMARY KEY,
     id_variante INTEGER NOT NULL,
     id_sucursal INTEGER NOT NULL,
@@ -73,6 +83,7 @@ CREATE TABLE ventas_bajas (
     FOREIGN KEY (id_usuario) REFERENCES usuarios(id_usuario) ON DELETE RESTRICT
 );
 
+
 -- Función genérica para actualizar timestamps
 CREATE OR REPLACE FUNCTION update_timestamp()
 RETURNS TRIGGER AS $$
@@ -82,8 +93,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Trigger enganchado a la tabla inventario_sucursal
-CREATE TRIGGER inventario_updated_at
+CREATE OR REPLACE TRIGGER inventario_updated_at
 BEFORE UPDATE ON inventario_sucursal
 FOR EACH ROW
 EXECUTE FUNCTION update_timestamp();
