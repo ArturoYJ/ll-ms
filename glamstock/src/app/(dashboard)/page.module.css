@@ -1,0 +1,13 @@
+.container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 50vh;
+}
+
+.title {
+  font-size: 2rem;
+  font-weight: bold;
+  color: #850E35;
+  text-align: center;
+}
