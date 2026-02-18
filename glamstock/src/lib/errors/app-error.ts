@@ -39,3 +39,7 @@ export class ConflictError extends AppError {
     super(message, 409);
   }
 }
+
+export function isAppError(error: unknown): error is AppError {
+  return error instanceof AppError;
+}

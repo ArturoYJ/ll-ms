@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { AuthService } from '../services/auth.service';
 import { JWTPayload } from '../types/auth.types';
-import { AppError } from '@/lib/errors/app-error';
+import { AppError, isAppError } from '@/lib/errors/app-error';
 
 type AuthenticatedHandler<T = unknown> = (
   req: NextRequest,
@@ -11,7 +11,7 @@ type AuthenticatedHandler<T = unknown> = (
 
 export function withAuth<T = unknown>(handler: AuthenticatedHandler<T>) {
   return async (req: NextRequest, context: T): Promise<NextResponse> => {
-    try {
+     try {
       // Cambio Fase 2: Leer token desde Cookie HttpOnly
       const token = req.cookies.get('auth_token')?.value;
 
@@ -28,7 +28,7 @@ export function withAuth<T = unknown>(handler: AuthenticatedHandler<T>) {
       // Delegar al handler con el payload ya validado
       return await handler(req, payload, context);
     } catch (error) {
-      if (error instanceof AppError) {
+      if (isAppError(error)) {
         return NextResponse.json(
           { error: error.message },
           { status: error.statusCode }
