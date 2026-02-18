@@ -28,3 +28,5 @@ export interface CreateProductoCompletoInput {
   nombre: string;
   variantes: CreateVarianteInput[];
 }
+
+export * from './pagination.types';
