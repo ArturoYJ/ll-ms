@@ -6,7 +6,7 @@ import {
   UpdateProductoInput,
 } from '../types/productos.types';
 import { Variante } from '../types/variantes.types';
-import { ConflictError, NotFoundError } from '@/lib/errors/app-error';
+import { ConflictError, NotFoundError, ValidationError } from '@/lib/errors/app-error';
 
 export class ProductosRepository {
 
@@ -86,7 +86,7 @@ export class ProductosRepository {
     }
 
     if (campos.length === 0) {
-      throw new Error('No se proporcionaron campos para actualizar');
+      throw new ValidationError('No se proporcionaron campos para actualizar');
     }
 
     valores.push(id);
@@ -112,10 +112,9 @@ export class ProductosRepository {
   }
 
    // Elimina un producto maestro verificando que no tenga variantes con inventario.
-   // Si tiene variantes sin inventario, las elimina también.
+   // Si tiene variantes sin inventario, las elimina también en una transacción atómica.
   static async delete(id: number): Promise<void> {
-    
-    // Verificar que el producto exista
+    // Verificar que el producto exista (antes de abrir la transacción)
     const existeQuery = `SELECT id_producto_maestro FROM productos_maestros WHERE id_producto_maestro = $1;`;
     const { rows: productoRows } = await db.query(existeQuery, [id]);
     if (productoRows.length === 0) {
@@ -135,15 +134,24 @@ export class ProductosRepository {
       throw new ConflictError('No se puede eliminar: existen variantes con inventario asociado');
     }
 
-    // Eliminar variantes del producto primero (sin inventario, ya verificado)
-    await db.query(`DELETE FROM variantes WHERE id_producto_maestro = $1;`, [id]);
-    // Eliminar el producto maestro
-    await db.query(`DELETE FROM productos_maestros WHERE id_producto_maestro = $1;`, [id]);
+    // Eliminar variantes y producto en una sola transacción atómica
+    const client = await db.getClient();
+    try {
+      await client.query('BEGIN');
+      await client.query(`DELETE FROM variantes WHERE id_producto_maestro = $1;`, [id]);
+      await client.query(`DELETE FROM productos_maestros WHERE id_producto_maestro = $1;`, [id]);
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 
    // Agrupa las filas planas del JOIN en un array de ProductoConVariantes.
    // Cada producto maestro agrupa sus variantes como un sub-array.
-  static agruparProductosConVariantes(rows: Record<string, unknown>[]): ProductoConVariantes[] {
+  private static agruparProductosConVariantes(rows: Record<string, unknown>[]): ProductoConVariantes[] {
     const mapa = new Map<number, ProductoConVariantes>();
 
     for (const row of rows) {
