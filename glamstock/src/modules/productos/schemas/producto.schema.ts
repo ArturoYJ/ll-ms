@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { CreateVarianteInput } from '../types/variantes.types';
 
 // 1. Variante (El item físico)
 export const varianteSchema = z.object({
@@ -14,12 +15,14 @@ export const varianteSchema = z.object({
 
 // 2. Producto Maestro
 export const crearProductoMaestroSchema = z.object({
-  sku: z.string().min(3, 'El SKU debe tener al menos 3 caracteres').max(50),
+  // SKU es opcional: si no se proporciona, el service lo genera automáticamente
+  sku: z.string().min(3, 'El SKU debe tener al menos 3 caracteres').max(50).optional(),
   nombre: z.string().min(2).max(150),
   // Un producto maestro puede crearse junto con sus variantes iniciales
   variantes: z.array(varianteSchema).min(1, 'Debe incluir al menos una variante (ej. el modelo base)'),
 });
 
-export type VarianteDTO = z.infer<typeof varianteSchema>;
+// VarianteDTO re-exporta CreateVarianteInput para evitar definiciones duplicadas
+export type { CreateVarianteInput as VarianteDTO };
 export type CrearProductoDTO = z.infer<typeof crearProductoMaestroSchema>;
 
