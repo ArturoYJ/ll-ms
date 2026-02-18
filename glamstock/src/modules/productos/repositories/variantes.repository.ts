@@ -4,7 +4,7 @@ import {
   CreateVarianteInput,
   UpdateVarianteInput,
 } from '../types/variantes.types';
-import { ConflictError, NotFoundError } from '@/lib/errors/app-error';
+import { ConflictError, NotFoundError, ValidationError } from '@/lib/errors/app-error';
 
 export class VariantesRepository {
 
@@ -95,7 +95,7 @@ export class VariantesRepository {
     }
 
     if (campos.length === 0) {
-      throw new Error('No se proporcionaron campos para actualizar');
+      throw new ValidationError('No se proporcionaron campos para actualizar');
     }
 
     valores.push(id);

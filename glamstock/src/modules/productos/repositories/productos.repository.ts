@@ -151,7 +151,7 @@ export class ProductosRepository {
 
    // Agrupa las filas planas del JOIN en un array de ProductoConVariantes.
    // Cada producto maestro agrupa sus variantes como un sub-array.
-  private static agruparProductosConVariantes(rows: Record<string, unknown>[]): ProductoConVariantes[] {
+  static agruparProductosConVariantes(rows: Record<string, unknown>[]): ProductoConVariantes[] {
     const mapa = new Map<number, ProductoConVariantes>();
 
     for (const row of rows) {
