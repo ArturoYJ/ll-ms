@@ -3,13 +3,14 @@ import { AuthService } from '../services/auth.service';
 import { JWTPayload } from '../types/auth.types';
 import { AppError } from '@/lib/errors/app-error';
 
-type AuthenticatedHandler = (
+type AuthenticatedHandler<T = unknown> = (
   req: NextRequest,
-  payload: JWTPayload
+  payload: JWTPayload,
+  context: T
 ) => Promise<NextResponse>;
 
-export function withAuth(handler: AuthenticatedHandler) {
-  return async (req: NextRequest): Promise<NextResponse> => {
+export function withAuth<T = unknown>(handler: AuthenticatedHandler<T>) {
+  return async (req: NextRequest, context: T): Promise<NextResponse> => {
     try {
       const authHeader = req.headers.get('authorization');
 
@@ -34,7 +35,7 @@ export function withAuth(handler: AuthenticatedHandler) {
       const payload = AuthService.verifyToken(token);
 
       // Delegar al handler con el payload ya validado
-      return await handler(req, payload);
+      return await handler(req, payload, context);
     } catch (error) {
       if (error instanceof AppError) {
         return NextResponse.json(
