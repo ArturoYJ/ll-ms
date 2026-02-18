@@ -8,6 +8,10 @@ export class AppError extends Error {
 
     // isOperational indica que es un error previsto de negocio, no un bug no controlado o imprevisto
     this.isOperational = true; 
+    
+    // Restaurar la cadena de prototipos (Fix para TypeScript/V8)
+    Object.setPrototypeOf(this, new.target.prototype);
+    
     Error.captureStackTrace(this, this.constructor);
   }
 }
@@ -34,4 +38,8 @@ export class ConflictError extends AppError {
   constructor(message = 'Conflicto en la base de datos (Ej. registro duplicado)') {
     super(message, 409);
   }
+}
+
+export function isAppError(error: unknown): error is AppError {
+  return error instanceof AppError;
 }

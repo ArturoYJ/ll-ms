@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { AuthService } from '@/modules/auth/services/auth.service';
 import { loginSchema } from '@/modules/auth/schemas/auth.schema';
-import { AppError } from '@/lib/errors/app-error';
+import { AppError, isAppError } from '@/lib/errors/app-error';
 
 export async function POST(req: NextRequest) {
   try {
@@ -28,11 +28,28 @@ export async function POST(req: NextRequest) {
     const { email, password } = resultado.data;
     const loginResponse = await AuthService.login(email, password);
 
-    // 4. Retornar token y datos del usuario
-    return NextResponse.json(loginResponse, { status: 200 });
+    // 4. Configurar Cookie HttpOnly
+    const response = NextResponse.json(
+      { 
+        user: loginResponse.usuario,
+        message: 'Inicio de sesión exitoso'
+      }, 
+      { status: 200 }
+    );
+
+    response.cookies.set('auth_token', loginResponse.token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 60 * 60 * 24 * 1, // 1 día
+      path: '/',
+    });
+
+    return response;
+
   } catch (error) {
     // 5. Manejo de errores diferenciado
-    if (error instanceof AppError) {
+    if (isAppError(error)) {
       return NextResponse.json(
         { error: error.message },
         { status: error.statusCode }
