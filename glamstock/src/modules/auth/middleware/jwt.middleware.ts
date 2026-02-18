@@ -12,24 +12,15 @@ type AuthenticatedHandler<T = unknown> = (
 export function withAuth<T = unknown>(handler: AuthenticatedHandler<T>) {
   return async (req: NextRequest, context: T): Promise<NextResponse> => {
     try {
-      const authHeader = req.headers.get('authorization');
+      // Cambio Fase 2: Leer token desde Cookie HttpOnly
+      const token = req.cookies.get('auth_token')?.value;
 
-      if (!authHeader) {
+      if (!token) {
         return NextResponse.json(
-          { error: 'Header Authorization es requerido' },
+          { error: 'No autorizado. Token no encontrado.' },
           { status: 401 }
         );
       }
-
-      // Validar formato "Bearer <token>"
-      if (!authHeader.startsWith('Bearer ')) {
-        return NextResponse.json(
-          { error: 'Formato de token inválido. Use: Bearer <token>' },
-          { status: 401 }
-        );
-      }
-
-      const token = authHeader.split(' ')[1];
 
       // Verificar y decodificar el JWT
       const payload = AuthService.verifyToken(token);
