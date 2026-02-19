@@ -1,7 +1,15 @@
 import { z } from 'zod';
 import { idSchema } from '@/lib/validations/common.schemas';
 
-// Esquema para dar de alta inventario o hacer ajustes
+export const MOTIVOS_VALIDOS = [
+  'Venta directa al cliente',
+  'Baja por merma / daño',
+  'Ajuste de inventario (Sobrante)',
+  'Ajuste de inventario (Faltante)',
+] as const;
+
+export type MotivoValido = typeof MOTIVOS_VALIDOS[number];
+
 export const ajusteStockSchema = z.object({
   id_variante: idSchema,
   id_sucursal: idSchema,
@@ -23,6 +31,19 @@ export const ajustarInventarioSchema = z.object({
   cantidad_nueva: z.coerce.number().int().nonnegative('La cantidad no puede ser negativa'),
 });
 
+export const ajusteInventarioApiSchema = z.object({
+  id_variante: idSchema,
+  id_sucursal: idSchema,
+  cantidad: z.coerce
+    .number()
+    .int('La cantidad debe ser un número entero')
+    .refine((v) => v !== 0, { message: 'La cantidad no puede ser cero' }),
+  motivo: z.enum(MOTIVOS_VALIDOS, {
+    error: `El motivo debe ser uno de los siguientes: ${MOTIVOS_VALIDOS.join(', ')}`,
+  }),
+});
+
 export type AjusteStockDTO = z.infer<typeof ajusteStockSchema>;
 export type RegistrarBajaDTO = z.infer<typeof registrarBajaSchema>;
 export type AjustarInventarioDTO = z.infer<typeof ajustarInventarioSchema>;
+export type AjusteInventarioApiDTO = z.infer<typeof ajusteInventarioApiSchema>;

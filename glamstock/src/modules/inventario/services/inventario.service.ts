@@ -8,6 +8,14 @@ import {
 } from '../types/inventario.types';
 import { ValidationError, NotFoundError } from '@/lib/errors/app-error';
 
+interface AjustePorCantidadInput {
+  id_variante: number;
+  id_sucursal: number;
+  cantidad: number; // positivo = entrada, negativo = salida
+  motivo: string;
+  id_usuario: number;
+}
+
 export class InventarioService {
 
   static async getInventarioBySucursal(id_sucursal: number): Promise<InventarioConValor[]> {
@@ -145,5 +153,54 @@ export class InventarioService {
     } finally {
       client.release();
     }
+  }
+
+  static async executarAjustePorCantidad(data: AjustePorCantidadInput): Promise<{ stock_nuevo: number; id_transaccion: number }> {
+    // 1. Buscar id_motivo por descripcion
+    const motivoQuery = `
+      SELECT id_motivo FROM motivos_transaccion WHERE descripcion = $1;
+    `;
+    const { rows: motivoRows } = await db.query(motivoQuery, [data.motivo]);
+
+    if (motivoRows.length === 0) {
+      throw new NotFoundError(`Motivo de transacción no encontrado: "${data.motivo}"`);
+    }
+    const id_motivo: number = motivoRows[0].id_motivo;
+
+    // 2. Actualizar stock atómicamente (lanza ValidationError si stock insuficiente)
+    const stockActualizado = await InventarioRepository.updateStock(
+      data.id_variante,
+      data.id_sucursal,
+      data.cantidad
+    );
+
+    // 3. Registrar la operación en ventas_bajas para auditoría
+    const cantidadAbsoluta = Math.abs(data.cantidad);
+    const transaccionQuery = `
+      INSERT INTO ventas_bajas (id_variante, id_sucursal, id_motivo, id_usuario, cantidad, precio_venta_final)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING id_transaccion;
+    `;
+    const { rows: transRows } = await db.query(transaccionQuery, [
+      data.id_variante,
+      data.id_sucursal,
+      id_motivo,
+      data.id_usuario,
+      cantidadAbsoluta,
+      0,
+    ]);
+
+    // 4. Log de auditoría
+    const tipo = data.cantidad > 0 ? 'ENTRADA' : 'SALIDA';
+    console.log(
+      `[INVENTARIO] ${tipo} | variante=${data.id_variante} sucursal=${data.id_sucursal} ` +
+      `cantidad=${data.cantidad} motivo="${data.motivo}" usuario=${data.id_usuario} ` +
+      `stock_nuevo=${stockActualizado.stock_actual} transaccion=${transRows[0].id_transaccion}`
+    );
+
+    return {
+      stock_nuevo: stockActualizado.stock_actual,
+      id_transaccion: transRows[0].id_transaccion,
+    };
   }
 }
