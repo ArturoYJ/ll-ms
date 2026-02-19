@@ -1,0 +1,149 @@
+import { db } from '@/lib/db/client';
+import { InventarioRepository } from '../repositories/inventario.repository';
+import {
+  InventarioConValor,
+  RegistrarBajaInput,
+  AjustarInventarioInput,
+  BajaRegistrada,
+} from '../types/inventario.types';
+import { ValidationError, NotFoundError } from '@/lib/errors/app-error';
+
+export class InventarioService {
+
+  static async getInventarioBySucursal(id_sucursal: number): Promise<InventarioConValor[]> {
+    const inventario = await InventarioRepository.findBySucursal(id_sucursal);
+    return inventario.map((item) => ({
+      ...item,
+      valor_total: item.stock_actual * Number(item.precio_venta),
+    }));
+  }
+
+  static async validateStockDisponible(
+    id_variante: number,
+    id_sucursal: number,
+    cantidad_requerida: number
+  ): Promise<boolean> {
+    return InventarioRepository.checkStock(id_variante, id_sucursal, cantidad_requerida);
+  }
+
+  static async registrarBaja(data: RegistrarBajaInput): Promise<BajaRegistrada> {
+    const hayStock = await InventarioRepository.checkStock(
+      data.id_variante,
+      data.id_sucursal,
+      data.cantidad
+    );
+
+    if (!hayStock) {
+      const stockActual = await InventarioRepository.getStockActual(
+        data.id_variante,
+        data.id_sucursal
+      );
+      throw new ValidationError(
+        `Stock insuficiente. Disponible: ${stockActual}, Solicitado: ${data.cantidad}`
+      );
+    }
+
+    const client = await db.getClient();
+    try {
+      await client.query('BEGIN');
+
+      const updateQuery = `
+        UPDATE inventario_sucursal
+        SET stock_actual = stock_actual - $1, updated_at = CURRENT_TIMESTAMP
+        WHERE id_variante = $2 AND id_sucursal = $3
+        RETURNING stock_actual;
+      `;
+      const { rows: stockRows } = await client.query(updateQuery, [
+        data.cantidad,
+        data.id_variante,
+        data.id_sucursal,
+      ]);
+
+      const transaccionQuery = `
+        INSERT INTO ventas_bajas (id_variante, id_sucursal, id_motivo, id_usuario, cantidad, precio_venta_final)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        RETURNING id_transaccion;
+      `;
+      const { rows: transRows } = await client.query(transaccionQuery, [
+        data.id_variante,
+        data.id_sucursal,
+        data.id_motivo,
+        data.id_usuario,
+        data.cantidad,
+        data.precio_venta_final,
+      ]);
+
+      await client.query('COMMIT');
+
+      return {
+        id_transaccion: transRows[0].id_transaccion,
+        stock_resultante: stockRows[0].stock_actual,
+      };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  static async ajustarInventario(data: AjustarInventarioInput): Promise<BajaRegistrada> {
+    if (data.cantidad_nueva < 0) {
+      throw new ValidationError('La cantidad de ajuste no puede ser negativa');
+    }
+
+    const registroActual = await InventarioRepository.findByVarianteAndSucursal(
+      data.id_variante,
+      data.id_sucursal
+    );
+
+    if (!registroActual) {
+      throw new NotFoundError('No existe registro de inventario para esta variante en la sucursal');
+    }
+
+    const diferencia = data.cantidad_nueva - registroActual.stock_actual;
+
+    const client = await db.getClient();
+    try {
+      await client.query('BEGIN');
+
+      const updateQuery = `
+        UPDATE inventario_sucursal
+        SET stock_actual = $1, updated_at = CURRENT_TIMESTAMP
+        WHERE id_variante = $2 AND id_sucursal = $3
+        RETURNING stock_actual;
+      `;
+      await client.query(updateQuery, [
+        data.cantidad_nueva,
+        data.id_variante,
+        data.id_sucursal,
+      ]);
+
+      const transaccionQuery = `
+        INSERT INTO ventas_bajas (id_variante, id_sucursal, id_motivo, id_usuario, cantidad, precio_venta_final)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        RETURNING id_transaccion;
+      `;
+      const { rows: transRows } = await client.query(transaccionQuery, [
+        data.id_variante,
+        data.id_sucursal,
+        data.id_motivo,
+        data.id_usuario,
+        Math.abs(diferencia),
+        0,
+      ]);
+
+      await client.query('COMMIT');
+
+      return {
+        id_transaccion: transRows[0].id_transaccion,
+        stock_resultante: data.cantidad_nueva,
+      };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+}
