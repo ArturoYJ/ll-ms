@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { AuthService } from '../services/auth.service';
 import { JWTPayload } from '../types/auth.types';
-import { AppError, isAppError } from '@/lib/errors/app-error';
+import { isAppError } from '@/lib/errors/app-error';
 
 type AuthenticatedHandler<T = unknown> = (
   req: NextRequest,
@@ -40,4 +40,18 @@ export function withAuth<T = unknown>(handler: AuthenticatedHandler<T>) {
       );
     }
   };
+}
+
+export function verifyToken(req: NextRequest): JWTPayload | null {
+  const token = req.cookies.get('auth_token')?.value;
+
+  if (!token) {
+    return null;
+  }
+
+  try {
+    return AuthService.verifyToken(token);
+  } catch (_error) {
+    return null;
+  }
 }
