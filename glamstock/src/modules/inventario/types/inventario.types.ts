@@ -38,11 +38,3 @@ export interface AjustarInventarioInput {
   cantidad_nueva: number;
 }
 
-export interface InventarioConValor extends InventarioDetallado {
-  valor_total: number;
-}
-
-export interface BajaRegistrada {
-  id_transaccion: number;
-  stock_resultante: number;
-}
