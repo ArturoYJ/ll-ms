@@ -20,3 +20,29 @@ export interface CreateInventarioInput {
   id_sucursal: number;
   stock_actual: number;
 }
+
+export interface RegistrarBajaInput {
+  id_variante: number;
+  id_sucursal: number;
+  id_motivo: number;
+  id_usuario: number;
+  cantidad: number;
+  precio_venta_final: number;
+}
+
+export interface AjustarInventarioInput {
+  id_variante: number;
+  id_sucursal: number;
+  id_motivo: number;
+  id_usuario: number;
+  cantidad_nueva: number;
+}
+
+export interface InventarioConValor extends InventarioDetallado {
+  valor_total: number;
+}
+
+export interface BajaRegistrada {
+  id_transaccion: number;
+  stock_resultante: number;
+}
