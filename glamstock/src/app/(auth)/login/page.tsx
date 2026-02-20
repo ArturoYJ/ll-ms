@@ -35,24 +35,18 @@ export default function LoginPage() {
 
   const validate = (): boolean => {
     const newErrors: FormErrors = {};
-
-    if (!formData.email) {
-      newErrors.email = 'El correo es obligatorio';
-    }
-
+    if (!formData.email) newErrors.email = 'El correo es obligatorio';
     if (!formData.password) {
       newErrors.password = 'La contraseña es obligatoria';
     } else if (formData.password.length < 6) {
       newErrors.password = 'La contraseña debe tener al menos 6 caracteres';
     }
-
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
     if (!validate()) return;
 
     setIsLoading(true);
@@ -61,20 +55,18 @@ export default function LoginPage() {
     try {
       const response = await fetch('/api/auth/login', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.message || 'Error al iniciar sesión');
+        throw new Error(data.error || 'Error al iniciar sesión');
       }
 
       localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
+      localStorage.setItem('user', JSON.stringify(data.usuario));
 
       router.push('/dashboard');
     } catch (error) {
@@ -89,14 +81,10 @@ export default function LoginPage() {
   return (
     <div className={styles.container}>
       <h1 className={styles.logo}>GLAMSTOCK</h1>
-      
+
       <div className={styles.card}>
         <div className={styles.imageSection}>
-          <img
-            src="/img-1.jpg"
-            alt="GlamStock Bag"
-            className={styles.image}
-          />
+          <img src="/img-1.jpg" alt="GlamStock Bag" className={styles.image} />
         </div>
 
         <div className={styles.formSection}>
@@ -114,7 +102,6 @@ export default function LoginPage() {
               onChange={handleChange}
               error={errors.email}
             />
-
             <FormField
               label="Contraseña:"
               id="password"
@@ -123,12 +110,7 @@ export default function LoginPage() {
               onChange={handleChange}
               error={errors.password}
             />
-
-            <button
-              type="submit"
-              disabled={isLoading}
-              className={styles.submitButton}
-            >
+            <button type="submit" disabled={isLoading} className={styles.submitButton}>
               {isLoading ? 'Ingresando...' : 'Ingresar'}
             </button>
           </form>

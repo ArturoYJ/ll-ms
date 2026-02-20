@@ -16,8 +16,8 @@ export default function DashboardLayout({
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
 
+    const token = localStorage.getItem('token');
     if (!token) {
       router.push('/login');
       return;
@@ -29,9 +29,7 @@ export default function DashboardLayout({
       },
     })
       .then((res) => {
-        if (!res.ok) {
-          throw new Error('Token inválido');
-        }
+        if (!res.ok) throw new Error('No autorizado');
         setIsAuthenticated(true);
       })
       .catch(() => {
