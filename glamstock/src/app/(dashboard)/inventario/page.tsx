@@ -4,7 +4,9 @@ import { useState, useEffect, useCallback } from 'react';
 import Table, { Column } from '@/components/ui/Table';
 import SearchInput from '@/components/ui/SearchInput';
 import Button from '@/components/ui/Button';
+import Dialog from '@/components/ui/Dialog';
 import styles from './page.module.css';
+import formStyles from './form.module.css';
 
 interface Variante {
   id_variante: number;
@@ -28,6 +30,32 @@ interface ProductoFila {
   valorVenta: number;
 }
 
+interface FormData {
+  nombre: string;
+  sku: string;
+  modelo: string;
+  color: string;
+  codigo_barras: string;
+  precio_adquisicion: string;
+  precio_venta_etiqueta: string;
+}
+
+interface FormErrors {
+  nombre?: string;
+  precio_adquisicion?: string;
+  precio_venta_etiqueta?: string;
+}
+
+const FORM_INITIAL: FormData = {
+  nombre: '',
+  sku: '',
+  modelo: '',
+  color: '',
+  codigo_barras: '',
+  precio_adquisicion: '',
+  precio_venta_etiqueta: '',
+};
+
 const ITEMS_PER_PAGE = 20;
 
 export default function InventarioPage() {
@@ -40,6 +68,11 @@ export default function InventarioPage() {
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [toast, setToast] = useState<{ msg: string; type: 'success' | 'error' } | null>(null);
 
+  const [showModal, setShowModal] = useState(false);
+  const [formData, setFormData] = useState<FormData>(FORM_INITIAL);
+  const [formErrors, setFormErrors] = useState<FormErrors>({});
+  const [submitting, setSubmitting] = useState(false);
+
   const showToast = (msg: string, type: 'success' | 'error') => {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3000);
@@ -49,9 +82,8 @@ export default function InventarioPage() {
     setLoading(true);
     setError('');
     try {
-      const token = localStorage.getItem('token');
       const res = await fetch('/api/productos?page=1&limit=100', {
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
       });
       if (!res.ok) throw new Error('Error al cargar productos');
       const data = await res.json();
@@ -93,10 +125,9 @@ export default function InventarioPage() {
   const handleDelete = async () => {
     if (!deleteId) return;
     try {
-      const token = localStorage.getItem('token');
       const res = await fetch(`/api/productos/${deleteId}`, {
         method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
+        credentials: 'include',
       });
       if (!res.ok) throw new Error();
       showToast('Producto eliminado correctamente', 'success');
@@ -105,6 +136,87 @@ export default function InventarioPage() {
       showToast('Error al eliminar el producto', 'error');
     } finally {
       setDeleteId(null);
+    }
+  };
+
+  const validateField = (name: keyof FormData, value: string): string | undefined => {
+    if (name === 'nombre' && !value.trim()) return 'El nombre es obligatorio';
+    if (name === 'precio_adquisicion') {
+      if (!value) return 'El precio de adquisición es obligatorio';
+      if (isNaN(Number(value)) || Number(value) < 0) return 'Debe ser un número positivo';
+    }
+    if (name === 'precio_venta_etiqueta') {
+      if (!value) return 'El precio de venta es obligatorio';
+      if (isNaN(Number(value)) || Number(value) < 0) return 'Debe ser un número positivo';
+      if (formData.precio_adquisicion && Number(value) < Number(formData.precio_adquisicion)) {
+        return 'Debe ser mayor al precio de adquisición';
+      }
+    }
+    return undefined;
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    const err = validateField(name as keyof FormData, value);
+    setFormErrors((prev) => ({ ...prev, [name]: err }));
+  };
+
+  const handleCloseModal = () => {
+    setShowModal(false);
+    setFormData(FORM_INITIAL);
+    setFormErrors({});
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const errors: FormErrors = {};
+    const nombreErr = validateField('nombre', formData.nombre);
+    const precioAdqErr = validateField('precio_adquisicion', formData.precio_adquisicion);
+    const precioVentaErr = validateField('precio_venta_etiqueta', formData.precio_venta_etiqueta);
+    if (nombreErr) errors.nombre = nombreErr;
+    if (precioAdqErr) errors.precio_adquisicion = precioAdqErr;
+    if (precioVentaErr) errors.precio_venta_etiqueta = precioVentaErr;
+
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const body = {
+        nombre: formData.nombre.trim(),
+        ...(formData.sku.trim() && { sku: formData.sku.trim() }),
+        variantes: [
+          {
+            codigo_barras: formData.codigo_barras.trim() || `CB-${Date.now()}`,
+            ...(formData.modelo.trim() && { modelo: formData.modelo.trim() }),
+            ...(formData.color.trim() && { color: formData.color.trim() }),
+            precio_adquisicion: Number(formData.precio_adquisicion),
+            precio_venta_etiqueta: Number(formData.precio_venta_etiqueta),
+          },
+        ],
+      };
+
+      const res = await fetch('/api/productos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(body),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Error al crear el producto');
+
+      showToast('Producto agregado correctamente', 'success');
+      handleCloseModal();
+      fetchProductos();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Error al crear el producto', 'error');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -154,7 +266,7 @@ export default function InventarioPage() {
           <h1 className={styles.title}>General</h1>
           <p className={styles.subtitle}>Total productos: {filtered.length}</p>
         </div>
-        <Button onClick={() => {}}>+ Agregar producto</Button>
+        <Button onClick={() => setShowModal(true)}>+ Agregar producto</Button>
       </div>
 
       {loading ? (
@@ -187,6 +299,107 @@ export default function InventarioPage() {
           </div>
         </div>
       )}
+
+      <Dialog open={showModal} onClose={handleCloseModal} title="Nuevo producto">
+        <form onSubmit={handleSubmit} className={formStyles.form}>
+
+          <div className={formStyles.field}>
+            <input
+              className={`${formStyles.input} ${formErrors.nombre ? formStyles.inputError : ''}`}
+              type="text"
+              name="nombre"
+              placeholder="Nombre del producto"
+              value={formData.nombre}
+              onChange={handleChange}
+            />
+            {formErrors.nombre && <p className={formStyles.error}>{formErrors.nombre}</p>}
+          </div>
+
+          <div className={formStyles.field}>
+            <input
+              className={formStyles.input}
+              type="text"
+              name="sku"
+              placeholder="SKU"
+              value={formData.sku}
+              onChange={handleChange}
+            />
+          </div>
+
+          <div className={formStyles.row}>
+            <div className={formStyles.field}>
+              <input
+                className={formStyles.input}
+                type="text"
+                name="modelo"
+                placeholder="Modelo"
+                value={formData.modelo}
+                onChange={handleChange}
+              />
+            </div>
+            <div className={formStyles.field}>
+              <input
+                className={formStyles.input}
+                type="text"
+                name="color"
+                placeholder="Color"
+                value={formData.color}
+                onChange={handleChange}
+              />
+            </div>
+          </div>
+
+          <div className={formStyles.field}>
+            <input
+              className={formStyles.input}
+              type="text"
+              name="codigo_barras"
+              placeholder="Código de barras"
+              value={formData.codigo_barras}
+              onChange={handleChange}
+            />
+          </div>
+
+          <div className={formStyles.row}>
+            <div className={formStyles.field}>
+              <input
+                className={`${formStyles.input} ${formErrors.precio_adquisicion ? formStyles.inputError : ''}`}
+                type="number"
+                name="precio_adquisicion"
+                placeholder="Valor original"
+                min="0"
+                step="0.01"
+                value={formData.precio_adquisicion}
+                onChange={handleChange}
+              />
+              {formErrors.precio_adquisicion && <p className={formStyles.error}>{formErrors.precio_adquisicion}</p>}
+            </div>
+            <div className={formStyles.field}>
+              <input
+                className={`${formStyles.input} ${formErrors.precio_venta_etiqueta ? formStyles.inputError : ''}`}
+                type="number"
+                name="precio_venta_etiqueta"
+                placeholder="Valor venta"
+                min="0"
+                step="0.01"
+                value={formData.precio_venta_etiqueta}
+                onChange={handleChange}
+              />
+              {formErrors.precio_venta_etiqueta && <p className={formStyles.error}>{formErrors.precio_venta_etiqueta}</p>}
+            </div>
+          </div>
+
+          <div className={formStyles.actions}>
+            <Button type="button" variant="secondary" onClick={handleCloseModal} disabled={submitting}>
+              Cancelar
+            </Button>
+            <Button type="submit" disabled={submitting}>
+              {submitting ? 'Guardando...' : 'Agregar producto'}
+            </Button>
+          </div>
+
+        </form>
+      </Dialog>
     </div>
   );
 }
