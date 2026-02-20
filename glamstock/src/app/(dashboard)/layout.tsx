@@ -16,25 +16,14 @@ export default function DashboardLayout({
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
-
-    const token = localStorage.getItem('token');
-    if (!token) {
-      router.push('/login');
-      return;
-    }
-
     fetch('/api/auth/me', {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
+      credentials: 'include',
     })
       .then((res) => {
         if (!res.ok) throw new Error('No autorizado');
         setIsAuthenticated(true);
       })
       .catch(() => {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
         router.push('/login');
       });
   }, [router]);
