@@ -52,11 +52,19 @@ export class VentasRepository {
     return rows;
   }
 
+  static async findBySucursalAndDateRange(id_sucursal: number, fecha_inicio: Date, fecha_fin: Date): Promise<VentaDetallada[]> {
+    const query = `${BASE_SELECT} WHERE vb.id_sucursal = $1 AND vb.fecha_hora BETWEEN $2 AND $3 ORDER BY vb.fecha_hora DESC;`;
+    const { rows } = await db.query(query, [id_sucursal, fecha_inicio, fecha_fin]);
+    return rows;
+  }
+
   static async findByDateRange(fecha_inicio: Date, fecha_fin: Date): Promise<VentaDetallada[]> {
     const query = `${BASE_SELECT} WHERE vb.fecha_hora BETWEEN $1 AND $2 ORDER BY vb.fecha_hora DESC;`;
     const { rows } = await db.query(query, [fecha_inicio, fecha_fin]);
     return rows;
   }
+
+
 
   static async getHistorial({ page, limit }: PaginationOptions): Promise<VentaDetallada[]> {
     const offset = (page - 1) * limit;
