@@ -8,24 +8,24 @@ import { ConflictError, NotFoundError, ValidationError } from '@/lib/errors/app-
 
 export class VariantesRepository {
 
-   // Crea una variante para un producto maestro existente.
-   // Valida que el producto maestro exista y que el código de barras sea único.
   static async create(idProductoMaestro: number, data: CreateVarianteInput): Promise<Variante> {
-    // Validar que el producto maestro existe
     const productoQuery = `SELECT id_producto_maestro FROM productos_maestros WHERE id_producto_maestro = $1;`;
     const { rows: productoRows } = await db.query(productoQuery, [idProductoMaestro]);
     if (productoRows.length === 0) {
       throw new NotFoundError('Producto maestro no encontrado');
     }
 
-    const query = `
-      INSERT INTO variantes (id_producto_maestro, codigo_barras, modelo, color, precio_adquisicion, precio_venta_etiqueta)
-      VALUES ($1, $2, $3, $4, $5, $6)
-      RETURNING id_variante, id_producto_maestro, codigo_barras, modelo, color, 
-                precio_adquisicion, precio_venta_etiqueta, etiqueta_generada, created_at;
-    `;
+    const client = await db.getClient();
     try {
-      const { rows } = await db.query(query, [
+      await client.query('BEGIN');
+
+      const varianteQuery = `
+        INSERT INTO variantes (id_producto_maestro, codigo_barras, modelo, color, precio_adquisicion, precio_venta_etiqueta)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        RETURNING id_variante, id_producto_maestro, codigo_barras, modelo, color,
+                  precio_adquisicion, precio_venta_etiqueta, etiqueta_generada, created_at;
+      `;
+      const { rows } = await client.query(varianteQuery, [
         idProductoMaestro,
         data.codigo_barras,
         data.modelo ?? null,
@@ -33,12 +33,28 @@ export class VariantesRepository {
         data.precio_adquisicion,
         data.precio_venta_etiqueta,
       ]);
-      return rows[0];
+      const variante = rows[0];
+
+      const inventarioQuery = `
+        INSERT INTO inventario_sucursal (id_variante, id_sucursal, stock_actual)
+        VALUES ($1, $2, $3);
+      `;
+      await client.query(inventarioQuery, [
+        variante.id_variante,
+        data.sucursal_id,
+        data.stock_inicial ?? 0,
+      ]);
+
+      await client.query('COMMIT');
+      return variante;
     } catch (error: unknown) {
+      await client.query('ROLLBACK');
       if (error instanceof Error && 'code' in error && (error as { code: string }).code === '23505') {
         throw new ConflictError('Ya existe una variante con este código de barras');
       }
       throw error;
+    } finally {
+      client.release();
     }
   }
 
@@ -53,7 +69,6 @@ export class VariantesRepository {
     return rows[0] || null;
   }
 
-   // Lista todas las variantes de un producto maestro.
   static async findByProductoMaestro(idProductoMaestro: number): Promise<Variante[]> {
     const query = `
       SELECT id_variante, id_producto_maestro, codigo_barras, modelo, color,
@@ -66,8 +81,6 @@ export class VariantesRepository {
     return rows;
   }
 
-   // Actualiza precios, modelo, color y/o código de barras de una variante.
-   // Valida código de barras duplicado.
   static async update(id: number, data: UpdateVarianteInput): Promise<Variante> {
     const campos: string[] = [];
     const valores: unknown[] = [];
@@ -121,26 +134,34 @@ export class VariantesRepository {
     }
   }
 
-   // Elimina una variante verificando que no tenga inventario asociado.
   static async delete(id: number): Promise<void> {
-    // Verificar que la variante exista
     const existeQuery = `SELECT id_variante FROM variantes WHERE id_variante = $1;`;
     const { rows: varianteRows } = await db.query(existeQuery, [id]);
     if (varianteRows.length === 0) {
       throw new NotFoundError('Variante no encontrada');
     }
 
-    // Verificar que no tenga inventario asociado
-    const inventarioQuery = `
-      SELECT id_inventario FROM inventario_sucursal 
-      WHERE id_variante = $1 
+    const stockQuery = `
+      SELECT id_inventario FROM inventario_sucursal
+      WHERE id_variante = $1 AND stock_actual > 0
       LIMIT 1;
     `;
-    const { rows: inventarioRows } = await db.query(inventarioQuery, [id]);
-    if (inventarioRows.length > 0) {
-      throw new ConflictError('No se puede eliminar: la variante tiene inventario asociado');
+    const { rows: stockRows } = await db.query(stockQuery, [id]);
+    if (stockRows.length > 0) {
+      throw new ConflictError('No se puede eliminar: la variante tiene stock activo en una o más sucursales');
     }
 
-    await db.query(`DELETE FROM variantes WHERE id_variante = $1;`, [id]);
+    const client = await db.getClient();
+    try {
+      await client.query('BEGIN');
+      await client.query(`DELETE FROM inventario_sucursal WHERE id_variante = $1;`, [id]);
+      await client.query(`DELETE FROM variantes WHERE id_variante = $1;`, [id]);
+      await client.query('COMMIT');
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 }

@@ -17,6 +17,8 @@ export interface CreateVarianteInput {
   color?: string | null;
   precio_adquisicion: number;
   precio_venta_etiqueta: number;
+  sucursal_id: number;
+  stock_inicial?: number;
 }
 
 // DTOs para actualizar variante de producto
