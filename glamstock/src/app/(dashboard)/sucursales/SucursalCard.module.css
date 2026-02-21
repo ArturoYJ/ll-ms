@@ -1,0 +1,82 @@
+.card {
+  background: #ffffff;
+  border-radius: 0.75rem;
+  border: 1px solid #e5e7eb;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid #f3f4f6;
+  gap: 1rem;
+}
+
+.nombre {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #850E35;
+  margin: 0 0 0.2rem;
+}
+
+.ubicacion {
+  font-size: 0.8rem;
+  color: #9ca3af;
+  margin: 0;
+}
+
+.total {
+  font-size: 0.875rem;
+  color: #374151;
+  margin: 0;
+  white-space: nowrap;
+}
+
+.total strong {
+  color: #111827;
+}
+
+.tableWrapper {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.th {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  font-weight: 600;
+  color: #374151;
+  border-bottom: 1px solid #e5e7eb;
+  white-space: nowrap;
+  background: #ffffff;
+}
+
+.tr {
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.tr:last-child {
+  border-bottom: none;
+}
+
+.td {
+  padding: 0.7rem 1rem;
+  color: #374151;
+  vertical-align: middle;
+}
+
+.empty {
+  padding: 2rem;
+  text-align: center;
+  color: #9ca3af;
+  font-size: 0.875rem;
+  margin: 0;
+}
