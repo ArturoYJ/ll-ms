@@ -26,3 +26,103 @@ export interface UtilidadPorPeriodo {
   ingresos_totales: number;
   utilidad_total: number;
 }
+
+export class VentasService {
+
+  static async registrarVenta(input: RegistrarVentaInput): Promise<ResultadoVenta> {
+    const validation = registrarVentaSchema.safeParse(input);
+    if (!validation.success) {
+      throw new ValidationError(validation.error.issues.map(i => i.message).join(', '));
+    }
+
+    const { id_variante, id_sucursal, id_motivo, cantidad, precio_venta_final } = validation.data;
+    const { id_usuario } = input;
+
+    const inventario = await InventarioRepository.findByVarianteAndSucursal(id_variante, id_sucursal);
+    if (!inventario) {
+      throw new NotFoundError('No existe inventario para esta variante en la sucursal indicada');
+    }
+
+    if (inventario.stock_actual < cantidad) {
+      throw new ValidationError(
+        `Stock insuficiente. Disponible: ${inventario.stock_actual}, Solicitado: ${cantidad}`
+      );
+    }
+
+    const client = await db.getClient();
+    try {
+      await client.query('BEGIN');
+
+      const insertQuery = `
+        INSERT INTO ventas_bajas (id_variante, id_sucursal, id_motivo, id_usuario, cantidad, precio_venta_final, fecha_hora)
+        VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)
+        RETURNING id_transaccion;
+      `;
+      const { rows: ventaRows } = await client.query(insertQuery, [
+        id_variante, id_sucursal, id_motivo, id_usuario, cantidad, precio_venta_final,
+      ]);
+
+      const updateQuery = `
+        UPDATE inventario_sucursal
+        SET stock_actual = stock_actual - $1, updated_at = CURRENT_TIMESTAMP
+        WHERE id_variante = $2 AND id_sucursal = $3
+        RETURNING stock_actual;
+      `;
+      const { rows: stockRows } = await client.query(updateQuery, [cantidad, id_variante, id_sucursal]);
+
+      await client.query('COMMIT');
+
+      return {
+        id_transaccion: ventaRows[0].id_transaccion,
+        stock_restante: stockRows[0].stock_actual,
+      };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  static async getHistorialVentas(filtros: FiltrosHistorial = {}): Promise<VentaDetallada[]> {
+    const { id_sucursal, fecha_inicio, fecha_fin } = filtros;
+
+    if (id_sucursal && fecha_inicio && fecha_fin) {
+      return VentasRepository.findBySucursalAndDateRange(id_sucursal, fecha_inicio, fecha_fin);
+    }
+    if (id_sucursal) {
+      return VentasRepository.findBySucursal(id_sucursal);
+    }
+    if (fecha_inicio && fecha_fin) {
+      return VentasRepository.findByDateRange(fecha_inicio, fecha_fin);
+    }
+    return VentasRepository.findAll();
+  }
+
+  static async calcularUtilidades(
+    fecha_inicio: Date,
+    fecha_fin: Date,
+    agruparPor: 'dia' | 'mes' = 'mes'
+  ): Promise<UtilidadPorPeriodo[]> {
+    const formato = agruparPor === 'dia' ? 'YYYY-MM-DD' : 'YYYY-MM';
+    const query = `
+      SELECT
+        TO_CHAR(vb.fecha_hora, $1) AS periodo,
+        COUNT(*) AS total_ventas,
+        ROUND(SUM(COALESCE(vb.precio_venta_final, 0) * vb.cantidad), 2) AS ingresos_totales,
+        ROUND(SUM((COALESCE(vb.precio_venta_final, 0) - v.precio_adquisicion) * vb.cantidad), 2) AS utilidad_total
+      FROM ventas_bajas vb
+      JOIN variantes v ON vb.id_variante = v.id_variante
+      WHERE vb.fecha_hora BETWEEN $2 AND $3
+      GROUP BY TO_CHAR(vb.fecha_hora, $1)
+      ORDER BY periodo ASC;
+    `;
+    const { rows } = await db.query(query, [formato, fecha_inicio, fecha_fin]);
+    return rows.map(r => ({
+      periodo: r.periodo,
+      total_ventas: Number(r.total_ventas),
+      ingresos_totales: Number(r.ingresos_totales),
+      utilidad_total: Number(r.utilidad_total),
+    }));
+  }
+}
