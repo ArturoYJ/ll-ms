@@ -52,7 +52,7 @@ export class VentasService {
     const client = await db.getClient();
     try {
       await client.query('BEGIN');
-
+    //Verificar si se pueden crear views de las queries más complejas
       const insertQuery = `
         INSERT INTO ventas_bajas (id_variante, id_sucursal, id_motivo, id_usuario, cantidad, precio_venta_final, fecha_hora)
         VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)
